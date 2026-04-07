@@ -32,6 +32,22 @@ class Settings(BaseSettings):
     speechkit_api_key: str = ""
     speechkit_folder_id: str = ""
 
+    # Google Calendar
+    google_calendar_id: str = ""
+    google_credentials_json: str = ""
+
+    # Dental Pro (MIS)
+    dental_pro_url: str = ""
+    dental_pro_token: str = ""
+
+    # 1C
+    onec_url: str = ""
+    onec_username: str = ""
+    onec_password: str = ""
+
+    # Bitrix24
+    bitrix24_webhook_url: str = ""
+
     # URLs
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"

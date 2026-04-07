@@ -69,3 +69,51 @@ export interface MeetingAnalysis {
   decisions: Decision[];
   tasks: Task[];
 }
+
+export interface WeeklyReport {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  period_start: string;
+  period_end: string;
+  completed_tasks: string | null;
+  metrics_json: string | null;
+  requests: string | null;
+  status: string;
+  submitted_at: string | null;
+  created_at: string;
+}
+
+export interface MetricSnapshot {
+  id: string;
+  source: string;
+  metric_name: string;
+  metric_value: number;
+  recorded_at: string;
+}
+
+export interface MetricAlert {
+  id: string;
+  alert_type: string;
+  message: string;
+  severity: string;
+  is_resolved: boolean;
+  created_at: string;
+}
+
+export interface ScoreEntry {
+  id: string;
+  user_id: string;
+  score_type: string;
+  points: number;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface LeaderboardEntry {
+  user_id: string;
+  first_name: string;
+  last_name: string | null;
+  total_points: number;
+  rank: number;
+}

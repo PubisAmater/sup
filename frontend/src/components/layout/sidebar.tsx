@@ -10,6 +10,10 @@ const navigation = [
   { name: "Сотрудники", href: "/dashboard/employees", icon: "users" },
   { name: "Совещания", href: "/dashboard/meetings", icon: "calendar" },
   { name: "Задачи", href: "/dashboard/tasks", icon: "check-square" },
+  { name: "Отчёты", href: "/dashboard/reports", icon: "file-text" },
+  { name: "Календарь", href: "/dashboard/calendar", icon: "clock" },
+  { name: "Метрики", href: "/dashboard/metrics", icon: "bar-chart" },
+  { name: "Рейтинг", href: "/dashboard/scores", icon: "award" },
 ];
 
 export function Sidebar() {
