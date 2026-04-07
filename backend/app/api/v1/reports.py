@@ -98,6 +98,19 @@ async def get_report(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает конкретный отчёт по UUID.
+
+    Args:
+        report_id: UUID отчёта.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ReportRead: Данные отчёта.
+
+    Raises:
+        HTTPException: 404, если отчёт не найден.
+    """
     result = await session.execute(select(WeeklyReport).where(WeeklyReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:
@@ -111,6 +124,20 @@ async def create_report(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Создаёт черновик еженедельного отчёта.
+
+    Привязывает отчёт к текущему пользователю и его тенанту.
+    После создания отчёт имеет статус ``draft`` и может быть
+    дополнен через PATCH до момента подачи (``submit``).
+
+    Args:
+        data: Период отчёта и содержание (задачи, метрики, запросы).
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ReportRead: Созданный отчёт-черновик.
+    """
     report = WeeklyReport(
         id=uuid.uuid4(),
         tenant_id=uuid.UUID(current_user["tenant_id"]),
@@ -130,6 +157,23 @@ async def update_report(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Обновляет черновик отчёта (PATCH-семантика).
+
+    Позволяет дополнить или изменить содержание отчёта до подачи.
+    Обновляются только переданные поля.
+
+    Args:
+        report_id: UUID обновляемого отчёта.
+        data: Поля для обновления.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ReportRead: Обновлённый отчёт.
+
+    Raises:
+        HTTPException: 404, если отчёт не найден.
+    """
     result = await session.execute(select(WeeklyReport).where(WeeklyReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:
