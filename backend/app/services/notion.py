@@ -113,6 +113,39 @@ class NotionService:
         summary: str | None = None,
         existing_page_id: str | None = None,
     ) -> str | None:
+        """
+        Синхронизирует совещание в базу данных Notion "Совещания".
+
+        ЧТО: Создаёт новую страницу или обновляет существующую в Notion-базе совещаний.
+
+        ЗАЧЕМ: Все совещания должны быть доступны в Notion для просмотра командой.
+        Страница содержит название, статус, дату, организатора и резюме (как контент).
+
+        КАК: Upsert-логика:
+          - Если existing_page_id передан --- PATCH-запрос на обновление свойств страницы.
+          - Если не передан --- POST-запрос на создание новой страницы в meetings_db_id.
+          - summary передаётся как paragraph block (контент страницы), обрезается до 2000
+            символов (ограничение Notion API на один текстовый блок).
+
+        Маппинг полей -> Notion properties:
+          - title -> "Название" (title): Заголовок страницы.
+          - status -> "Статус" (select): Выпадающий список.
+          - scheduled_at -> "Дата" (date): Дата и время в ISO 8601.
+          - organizer_name -> "Организатор" (rich_text): Текстовое поле.
+          - summary -> контент страницы (paragraph block).
+
+        Аргументы:
+            meeting_id (uuid.UUID): ID совещания в внутренней БД (для логирования).
+            title (str): Название совещания.
+            status (str): Статус ("scheduled", "in_progress", "completed" и др.).
+            scheduled_at (str | None): Дата/время в ISO 8601.
+            organizer_name (str | None): Имя организатора.
+            summary (str | None): Резюме совещания (обрезается до 2000 символов).
+            existing_page_id (str | None): ID существующей Notion-страницы для обновления.
+
+        Возвращает:
+            str | None: ID страницы Notion (новой или обновлённой). None при ошибке.
+        """
         properties = {
             "Название": {"title": [{"text": {"content": title}}]},
             "Статус": {"select": {"name": status}},
@@ -152,6 +185,38 @@ class NotionService:
         meeting_title: str | None = None,
         existing_page_id: str | None = None,
     ) -> str | None:
+        """
+        Синхронизирует решение в базу данных Notion "Решения".
+
+        ЧТО: Создаёт новую страницу или обновляет существующую в Notion-базе решений.
+
+        ЗАЧЕМ: Решения --- ключевой результат совещаний. Их хранение в Notion позволяет
+        отслеживать выполнение и искать противоречия с новыми решениями.
+
+        КАК: Upsert-логика аналогична sync_meeting(). Текст решения (content) используется
+        как title страницы и обрезается до 200 символов (ограничение Notion для title).
+
+        Маппинг полей -> Notion properties:
+          - content -> "Решение" (title): Текст решения, до 200 символов.
+          - status -> "Статус" (select): Статус выполнения.
+          - priority -> "Приоритет" (select): high/medium/low.
+          - assignee_name -> "Ответственный" (rich_text): Имя ответственного.
+          - due_date -> "Срок" (date): Дедлайн в ISO 8601.
+          - meeting_title -> "Совещание" (rich_text): Название совещания-источника.
+
+        Аргументы:
+            decision_id (uuid.UUID): ID решения в внутренней БД (для логирования).
+            content (str): Текст решения (обрезается до 200 символов для title).
+            status (str): Статус решения.
+            priority (str): Приоритет ("high", "medium", "low"). По умолчанию "medium".
+            assignee_name (str | None): Имя ответственного.
+            due_date (str | None): Срок выполнения в ISO 8601.
+            meeting_title (str | None): Название совещания, на котором принято решение.
+            existing_page_id (str | None): ID существующей Notion-страницы для обновления.
+
+        Возвращает:
+            str | None: ID страницы Notion. None при ошибке.
+        """
         properties = {
             "Решение": {"title": [{"text": {"content": content[:200]}}]},
             "Статус": {"select": {"name": status}},
@@ -184,6 +249,38 @@ class NotionService:
         description: str | None = None,
         existing_page_id: str | None = None,
     ) -> str | None:
+        """
+        Синхронизирует задачу в базу данных Notion "Задачи".
+
+        ЧТО: Создаёт новую страницу или обновляет существующую в Notion-базе задач.
+
+        ЗАЧЕМ: Задачи, поставленные на совещаниях, должны быть видны исполнителям
+        в Notion. Notion-база задач служит единым трекером для всех поручений.
+
+        КАК: Upsert-логика аналогична sync_meeting(). description передаётся как
+        paragraph block (контент страницы), обрезается до 2000 символов.
+
+        Маппинг полей -> Notion properties:
+          - title -> "Задача" (title): Краткое название задачи.
+          - status -> "Статус" (select): Статус выполнения.
+          - priority -> "Приоритет" (select): high/medium/low.
+          - assignee_name -> "Исполнитель" (rich_text): Имя исполнителя.
+          - due_date -> "Срок" (date): Дедлайн в ISO 8601.
+          - description -> контент страницы (paragraph block, до 2000 символов).
+
+        Аргументы:
+            task_id (uuid.UUID): ID задачи в внутренней БД (для логирования).
+            title (str): Краткое название задачи.
+            status (str): Статус задачи.
+            priority (str): Приоритет ("high", "medium", "low"). По умолчанию "medium".
+            assignee_name (str | None): Имя исполнителя.
+            due_date (str | None): Срок выполнения в ISO 8601.
+            description (str | None): Подробное описание (обрезается до 2000 символов).
+            existing_page_id (str | None): ID существующей Notion-страницы для обновления.
+
+        Возвращает:
+            str | None: ID страницы Notion. None при ошибке.
+        """
         properties = {
             "Задача": {"title": [{"text": {"content": title}}]},
             "Статус": {"select": {"name": status}},
@@ -214,6 +311,32 @@ class NotionService:
             return None
 
     async def query_database(self, database_id: str, filter_params: dict | None = None) -> dict:
+        """
+        Выполняет запрос к базе данных Notion с опциональными фильтрами.
+
+        ЧТО: Отправляет POST-запрос к Notion Database Query API и возвращает
+        результаты (страницы базы данных).
+
+        ЗАЧЕМ: Универсальный метод для чтения данных из любой базы Notion.
+        Используется для получения списка решений (при проверке противоречий),
+        задач (при синхронизации статусов) и других данных.
+
+        КАК: POST-запрос к /databases/{database_id}/query с JSON-телом,
+        содержащим параметры фильтрации (формат Notion Filter API).
+        Если filter_params не передан --- возвращает все страницы.
+
+        Аргументы:
+            database_id (str): ID базы данных Notion для запроса.
+            filter_params (dict | None): Параметры фильтрации в формате Notion API.
+                Пример: {"filter": {"property": "Статус", "select": {"equals": "active"}}}.
+
+        Возвращает:
+            dict: Полный ответ Notion API, содержащий поле "results" со списком
+            страниц и "has_more" для пагинации.
+
+        Исключения:
+            httpx.HTTPStatusError: При ошибке Notion API.
+        """
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{NOTION_API_URL}/databases/{database_id}/query",
@@ -226,6 +349,28 @@ class NotionService:
     async def _create_page(
         self, database_id: str, properties: dict, children: list | None = None
     ) -> str | None:
+        """
+        Создаёт новую страницу в указанной базе данных Notion.
+
+        ЧТО: Внутренний метод для создания страницы через POST /pages.
+
+        ЗАЧЕМ: Используется всеми sync_* методами при создании новых записей
+        (когда existing_page_id не передан).
+
+        КАК: POST-запрос к Notion Pages API с телом, содержащим parent
+        (database_id), properties (свойства) и опционально children (блоки контента).
+
+        Аргументы:
+            database_id (str): ID целевой базы данных Notion.
+            properties (dict): Свойства страницы в формате Notion API.
+            children (list | None): Блоки контента (paragraph, heading и др.).
+
+        Возвращает:
+            str | None: ID созданной страницы Notion.
+
+        Исключения:
+            httpx.HTTPStatusError: При ошибке Notion API.
+        """
         body: dict = {
             "parent": {"database_id": database_id},
             "properties": properties,
@@ -243,6 +388,28 @@ class NotionService:
             return response.json()["id"]
 
     async def _update_page(self, page_id: str, properties: dict) -> str | None:
+        """
+        Обновляет свойства существующей страницы Notion.
+
+        ЧТО: Внутренний метод для обновления свойств страницы через PATCH /pages/{id}.
+
+        ЗАЧЕМ: Используется всеми sync_* методами при обновлении существующих записей
+        (когда existing_page_id передан). Обновляет только свойства (properties),
+        контент страницы (children) не обновляется --- это ограничение текущей реализации.
+
+        КАК: PATCH-запрос к Notion Pages API с JSON-телом {"properties": {...}}.
+        Notion обновляет только переданные свойства, остальные остаются без изменений.
+
+        Аргументы:
+            page_id (str): ID существующей страницы Notion.
+            properties (dict): Обновляемые свойства в формате Notion API.
+
+        Возвращает:
+            str | None: ID обновлённой страницы (тот же page_id).
+
+        Исключения:
+            httpx.HTTPStatusError: При ошибке Notion API.
+        """
         async with httpx.AsyncClient() as client:
             response = await client.patch(
                 f"{NOTION_API_URL}/pages/{page_id}",

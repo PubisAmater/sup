@@ -26,6 +26,21 @@ async def list_free_slots(
     duration: int = Query(30, ge=15, le=120),
     current_user: dict = Depends(get_current_user),
 ):
+    """Ищет свободные временные слоты в Google Calendar.
+
+    Анализирует занятость календаря и возвращает доступные окна
+    заданной продолжительности. Используется при планировании совещаний
+    для автоматического подбора удобного времени.
+
+    Args:
+        date_from: Начало диапазона поиска (по умолчанию — сейчас).
+        date_to: Конец диапазона поиска (по умолчанию — через 7 дней).
+        duration: Длительность слота в минутах (15-120, по умолчанию 30).
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        dict: ``{"slots": [...]}`` — список свободных временных окон.
+    """
     calendar = GoogleCalendarService()
     slots = await calendar.find_free_slots(
         date_from=date_from,
@@ -43,6 +58,22 @@ async def book_slot(
     description: str | None = Body(None),
     current_user: dict = Depends(get_current_user),
 ):
+    """Бронирует временной слот, создавая событие в Google Calendar.
+
+    Создаёт новое событие в календаре с указанными параметрами.
+    Используется после выбора свободного слота при создании совещания.
+
+    Args:
+        title: Название события (совещания).
+        start: Время начала события.
+        end: Время окончания события.
+        description: Описание события (необязательно).
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        dict: ``{"status": "booked", "event": {...}}`` при успехе
+              или ``{"status": "failed", "message": "..."}`` при ошибке.
+    """
     calendar = GoogleCalendarService()
     event = await calendar.create_event(
         title=title,
