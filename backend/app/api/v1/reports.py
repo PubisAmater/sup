@@ -1,3 +1,15 @@
+"""Еженедельные отчёты сотрудников: CRUD, подача и доставка CEO.
+
+Модуль обеспечивает полный цикл еженедельной отчётности:
+- Создание черновика отчёта за период (неделю);
+- Редактирование до подачи (заполнение выполненных задач, метрик, запросов);
+- Подача отчёта (``submit``) — фиксирует время и ставит в очередь доставку
+  CEO через Telegram + генерацию аудио-саммари через SpeechKit;
+- Получение отчёта текущей недели для быстрого доступа.
+
+CEO получает отчёты автоматически в Telegram-бот после подачи сотрудником.
+"""
+
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -21,6 +33,23 @@ async def list_reports(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает список еженедельных отчётов с пагинацией и фильтрацией.
+
+    Позволяет CEO просматривать все отчёты или фильтровать по конкретному
+    сотруднику и статусу (``draft``, ``submitted``). Результаты отсортированы
+    по дате окончания периода (новые сверху).
+
+    Args:
+        offset: Смещение для пагинации.
+        limit: Максимум записей (1-100).
+        user_id: Фильтр по UUID автора отчёта.
+        status_filter: Фильтр по статусу отчёта.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        list[ReportRead]: Список отчётов.
+    """
     query = select(WeeklyReport)
     if user_id:
         query = query.where(WeeklyReport.user_id == user_id)
@@ -36,6 +65,20 @@ async def get_current_week_report(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает отчёт текущего пользователя за текущую неделю.
+
+    Автоматически вычисляет границы текущей недели (понедельник-воскресенье)
+    и ищет отчёт для текущего пользователя. Возвращает ``null``, если
+    отчёт ещё не создан. Используется фронтендом для отображения формы
+    заполнения еженедельного отчёта.
+
+    Args:
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ReportRead | None: Отчёт текущей недели или ``null``.
+    """
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
