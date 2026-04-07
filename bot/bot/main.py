@@ -4,6 +4,7 @@ import os
 
 from aiogram import Bot, Dispatcher
 
+from bot.handlers.notifications import router as notifications_router
 from bot.handlers.start import router as start_router
 
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,7 @@ async def main():
     bot = Bot(token=token)
     dp = Dispatcher()
     dp.include_router(start_router)
+    dp.include_router(notifications_router)
 
     logger.info("Starting SUP bot...")
     await dp.start_polling(bot)

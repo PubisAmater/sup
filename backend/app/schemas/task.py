@@ -34,23 +34,7 @@ class TaskRead(BaseModel):
     status: str
     priority: str
     due_date: date | None
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class DecisionCreate(BaseModel):
-    content: str
-    meeting_id: uuid.UUID
-
-
-class DecisionRead(BaseModel):
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    meeting_id: uuid.UUID
-    content: str
-    decided_by: uuid.UUID
-    status: str
+    notion_page_id: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -16,6 +16,7 @@ async def list_tasks(
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     assignee_id: uuid.UUID | None = None,
+    meeting_id: uuid.UUID | None = None,
     status_filter: str | None = Query(None, alias="status"),
     priority: str | None = None,
     session: AsyncSession = Depends(get_db),
@@ -24,12 +25,30 @@ async def list_tasks(
     query = select(Task)
     if assignee_id:
         query = query.where(Task.assignee_id == assignee_id)
+    if meeting_id:
+        query = query.where(Task.meeting_id == meeting_id)
     if status_filter:
         query = query.where(Task.status == status_filter)
     if priority:
         query = query.where(Task.priority == priority)
     query = query.order_by(Task.created_at.desc()).offset(offset).limit(limit)
     result = await session.execute(query)
+    return result.scalars().all()
+
+
+@router.get("/overdue", response_model=list[TaskRead])
+async def list_overdue_tasks(
+    session: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    from datetime import date
+    today = date.today()
+    result = await session.execute(
+        select(Task)
+        .where(Task.due_date < today)
+        .where(Task.status.in_(["todo", "in_progress"]))
+        .order_by(Task.due_date.asc())
+    )
     return result.scalars().all()
 
 

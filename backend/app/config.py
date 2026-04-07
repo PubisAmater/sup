@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     # Notion
     notion_api_key: str = ""
+    notion_meetings_db_id: str = ""
+    notion_decisions_db_id: str = ""
+    notion_tasks_db_id: str = ""
 
     # Yandex SpeechKit
     speechkit_api_key: str = ""
