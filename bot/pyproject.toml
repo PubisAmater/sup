@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sup-bot"
+version = "0.1.0"
+description = "SUP Telegram Bot"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.4",
+    "httpx>=0.27",
+    "pydantic-settings>=2.2",
+    "redis>=5.0",
+]
