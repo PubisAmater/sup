@@ -1,3 +1,17 @@
+"""Сбор метрик из внешних систем (DentalPro, 1C, Bitrix24) и проверка алертов.
+
+Модуль содержит два arq-воркера для автоматического мониторинга бизнес-показателей:
+
+- ``collect_metrics`` — периодически опрашивает внешние системы (DentalPro, 1C, Bitrix24),
+  собирает ключевые метрики (загрузка кресел, выручка, маржа, лиды, конверсия и т.д.)
+  и сохраняет снимки в таблицу ``metric_snapshots``;
+- ``check_metric_alerts`` — анализирует собранные метрики на предмет отклонений
+  от пороговых значений и отправляет критические/warning алерты CEO в Telegram.
+
+Зачем: CEO видит актуальные бизнес-метрики на дашборде и получает мгновенные
+уведомления при проблемах, не дожидаясь еженедельных отчётов.
+"""
+
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -10,7 +24,24 @@ logger = logging.getLogger(__name__)
 
 
 async def collect_metrics(ctx: dict) -> None:
-    """Collect metrics from external systems (DentalPro, 1C, Bitrix24)."""
+    """Собирает бизнес-метрики из внешних систем для всех активных тенантов.
+
+    Для каждого активного тенанта последовательно опрашивает три системы:
+
+    - **DentalPro**: количество кресел, загрузка (%), средний чек;
+    - **1C**: месячная выручка, маржа (%), ФОТ;
+    - **Bitrix24**: количество лидов, конверсия, сумма сделок.
+
+    Каждая метрика сохраняется как ``MetricSnapshot`` с указанием источника,
+    имени метрики, значения и времени записи. Ошибки отдельных систем
+    не блокируют сбор из остальных (graceful degradation).
+
+    Зачем: формирует историческую базу метрик для графиков на дашборде
+    и для формулы выручки (кресла * загрузка * средний чек).
+
+    Args:
+        ctx: Контекст arq-воркера.
+    """
     from app.database import async_session_factory
     from app.models.metric_snapshot import MetricSnapshot
     from app.models.tenant import Tenant
@@ -102,7 +133,19 @@ async def collect_metrics(ctx: dict) -> None:
 
 
 async def check_metric_alerts(ctx: dict) -> None:
-    """Check metrics against thresholds and generate alerts."""
+    """Проверяет метрики на отклонения от пороговых значений и генерирует алерты.
+
+    Для каждого активного тенанта вызывает ``AnalyticsService.check_deviations``,
+    который сравнивает текущие метрики с установленными порогами.
+    Критические и warning-алерты отправляются всем CEO тенанта в Telegram
+    с цветовой индикацией серьёзности.
+
+    Зачем: обеспечивает проактивный мониторинг — CEO узнаёт о проблемах
+    (падение выручки, низкая загрузка) мгновенно, а не из еженедельного отчёта.
+
+    Args:
+        ctx: Контекст arq-воркера.
+    """
     from app.database import async_session_factory
     from app.models.tenant import Tenant
     from app.models.user import User

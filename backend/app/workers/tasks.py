@@ -1,3 +1,18 @@
+"""Основной arq-воркер: AI-анализ совещаний, Notion-синхронизация, просрочки, напоминания.
+
+Модуль содержит фоновые задачи, выполняемые через очередь arq (Redis):
+
+- ``process_meeting_analysis`` — полный пайплайн анализа совещания через Claude AI:
+  построение контекста (история решений + открытые задачи), вызов LLM,
+  сохранение саммари, решений и задач в БД;
+- ``sync_entity_to_notion`` — синхронизация совещания/решения/задачи в Notion;
+- ``check_overdue_tasks`` — cron-задача (ежедневно в 9:00): поиск просроченных
+  задач и отправка напоминаний исполнителям в Telegram;
+- ``send_meeting_reminder`` — отправка напоминания участникам совещания.
+
+Класс ``WorkerSettings`` регистрирует все задачи и cron-расписания для arq.
+"""
+
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -14,7 +29,26 @@ logger = logging.getLogger(__name__)
 
 
 async def process_meeting_analysis(ctx: dict, meeting_id: str) -> None:
-    """Full meeting analysis pipeline: Claude AI → decisions + tasks in DB."""
+    """Полный пайплайн AI-анализа совещания: транскрипция -> Claude -> решения + задачи в БД.
+
+    Этапы обработки:
+    1. Загрузка совещания и его транскрипции из БД;
+    2. Сбор контекста: исторические решения за 90 дней + открытые задачи тенанта;
+    3. Вызов Claude AI для анализа транскрипции с контекстом;
+    4. Сохранение саммари в поле ``meeting.summary``;
+    5. Создание записей ``Decision`` в БД по каждому выявленному решению;
+    6. Создание записей ``Task`` в БД по каждой выявленной задаче.
+
+    Зачем: автоматизирует рутину ведения протокола — CEO получает
+    структурированный результат совещания без ручной обработки.
+
+    При ошибке: устанавливает ``processing_status='failed'`` и сохраняет
+    текст ошибки в ``processing_error``.
+
+    Args:
+        ctx: Контекст arq-воркера (содержит Redis-соединение и пр.).
+        meeting_id: UUID совещания в строковом формате.
+    """
     from app.database import async_session_factory
     from app.models.decision import Decision
     from app.models.meeting import Meeting
@@ -124,7 +158,20 @@ async def process_meeting_analysis(ctx: dict, meeting_id: str) -> None:
 
 
 async def sync_entity_to_notion(ctx: dict, entity_type: str, entity_id: str) -> None:
-    """Sync a meeting, decision, or task to Notion."""
+    """Синхронизирует сущность (совещание, решение или задачу) с Notion.
+
+    Создаёт или обновляет страницу в Notion-базе данных для указанной
+    сущности. Если страница уже существует (``notion_page_id`` заполнен),
+    обновляет её; иначе — создаёт новую и сохраняет ``notion_page_id`` в БД.
+
+    Зачем: CEO и команда могут работать с решениями и задачами в привычном
+    интерфейсе Notion, а данные остаются синхронизированными с основной системой.
+
+    Args:
+        ctx: Контекст arq-воркера.
+        entity_type: Тип сущности: ``meeting``, ``decision`` или ``task``.
+        entity_id: UUID сущности в строковом формате.
+    """
     from app.database import async_session_factory
     from app.models.decision import Decision
     from app.models.meeting import Meeting
@@ -198,7 +245,19 @@ async def sync_entity_to_notion(ctx: dict, entity_type: str, entity_id: str) -> 
 
 
 async def check_overdue_tasks(ctx: dict) -> None:
-    """Find overdue tasks and notify assignees via Telegram."""
+    """Находит просроченные задачи и отправляет напоминания исполнителям в Telegram.
+
+    Запускается ежедневно по cron в 9:00. Выбирает все задачи, у которых
+    ``due_date`` раньше сегодняшней даты и статус ``todo``/``in_progress``.
+    Для каждого исполнителя с привязанным ``telegram_id`` отправляет
+    уведомление с названием задачи, сроком и количеством дней просрочки.
+
+    Зачем: обеспечивает автоматический контроль дисциплины выполнения задач
+    без ручного мониторинга со стороны CEO.
+
+    Args:
+        ctx: Контекст arq-воркера.
+    """
     from app.database import async_session_factory
     from app.models.task import Task
     from app.models.user import User
@@ -231,7 +290,19 @@ async def check_overdue_tasks(ctx: dict) -> None:
 
 
 async def send_meeting_reminder(ctx: dict, meeting_id: str) -> None:
-    """Send meeting reminder to all participants."""
+    """Отправляет напоминание о совещании всем участникам через Telegram.
+
+    Загружает совещание и его участников из БД, формирует сообщение
+    с названием, датой и длительностью, и отправляет каждому участнику
+    с привязанным ``telegram_id``.
+
+    Зачем: снижает количество пропущенных совещаний за счёт push-уведомлений
+    в Telegram, который сотрудники проверяют чаще, чем email/календарь.
+
+    Args:
+        ctx: Контекст arq-воркера.
+        meeting_id: UUID совещания в строковом формате.
+    """
     from app.database import async_session_factory
     from app.models.meeting import Meeting
     from app.models.meeting_participant import MeetingParticipant
@@ -272,6 +343,12 @@ async def send_meeting_reminder(ctx: dict, meeting_id: str) -> None:
 
 
 class WorkerSettings:
+    """Конфигурация arq-воркера: регистрация задач, cron-расписание, Redis.
+
+    Все фоновые задачи системы регистрируются в ``functions``.
+    Периодические задачи (проверка просрочек) — в ``cron_jobs``.
+    Подключение к Redis берётся из настроек приложения.
+    """
     functions = [
         process_meeting_analysis,
         sync_entity_to_notion,

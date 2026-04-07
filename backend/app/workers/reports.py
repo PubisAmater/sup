@@ -1,3 +1,17 @@
+"""Доставка еженедельных отчётов CEO в Telegram и генерация аудио-саммари через SpeechKit.
+
+Модуль содержит два arq-воркера:
+
+- ``deliver_report_to_ceo`` — форматирует отчёт сотрудника в Telegram-сообщения
+  (блоки: заголовок, выполненные задачи, метрики, запросы) и отправляет
+  всем пользователям с ролью ``ceo`` в тенанте;
+- ``generate_audio_summary`` — генерирует аудио-версию отчёта через Yandex SpeechKit
+  и отправляет голосовое сообщение CEO в Telegram.
+
+Зачем: CEO может ознакомиться с отчётами «на ходу» — прочитать в Telegram
+или прослушать аудио-саммари, не заходя в веб-интерфейс.
+"""
+
 import logging
 import uuid
 
@@ -9,7 +23,22 @@ logger = logging.getLogger(__name__)
 
 
 async def deliver_report_to_ceo(ctx: dict, report_id: str) -> None:
-    """Format weekly report into Telegram blocks and deliver to CEO."""
+    """Форматирует еженедельный отчёт в Telegram-блоки и доставляет CEO.
+
+    Этапы:
+    1. Загрузка отчёта и автора из БД;
+    2. Поиск всех пользователей с ролью ``ceo`` в том же тенанте;
+    3. Формирование блоков сообщений (заголовок, задачи, метрики, запросы);
+    4. Последовательная отправка блоков каждому CEO через Telegram Bot API.
+
+    Зачем: CEO получает отчёты в реальном времени без необходимости
+    заходить в веб-интерфейс. Блочная отправка позволяет Telegram
+    корректно отображать длинные тексты.
+
+    Args:
+        ctx: Контекст arq-воркера.
+        report_id: UUID отчёта в строковом формате.
+    """
     from app.database import async_session_factory
     from app.models.user import User
     from app.models.weekly_report import WeeklyReport
@@ -69,7 +98,21 @@ async def deliver_report_to_ceo(ctx: dict, report_id: str) -> None:
 
 
 async def generate_audio_summary(ctx: dict, report_id: str) -> None:
-    """Generate audio summary of report using SpeechKit."""
+    """Генерирует аудио-саммари отчёта через Yandex SpeechKit и отправляет CEO.
+
+    Этапы:
+    1. Загрузка отчёта и автора из БД;
+    2. Формирование текста для озвучки (автор, период, задачи, запросы);
+    3. Синтез речи через SpeechKit (text-to-speech);
+    4. Отправка аудиофайла всем CEO в Telegram.
+
+    Зачем: CEO может прослушать краткое содержание отчёта в аудиоформате —
+    удобно при поездках или когда нет возможности читать текст.
+
+    Args:
+        ctx: Контекст arq-воркера.
+        report_id: UUID отчёта в строковом формате.
+    """
     from app.database import async_session_factory
     from app.models.user import User
     from app.models.weekly_report import WeeklyReport

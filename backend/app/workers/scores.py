@@ -1,3 +1,17 @@
+"""Автоматическое начисление баллов за выполнение задач и подачу отчётов.
+
+Модуль реализует автоматическую часть системы геймификации (scoring):
+
+- ``auto_score_tasks`` — ежедневно проверяет задачи, завершённые вчера,
+  и начисляет баллы: положительные за выполнение в срок, отрицательные за просрочку;
+- ``auto_score_reports`` — по понедельникам проверяет, кто подал еженедельный
+  отчёт вовремя, и начисляет баллы за своевременную подачу.
+
+Значения баллов настраиваются через константу ``SCORE_VALUES``.
+Ручные бонусы/штрафы начисляются через API-эндпоинты ``/scores/bonus``
+и ``/scores/penalty``.
+"""
+
 import logging
 import uuid
 from datetime import date, timedelta
@@ -20,7 +34,19 @@ SCORE_VALUES = {
 
 
 async def auto_score_tasks(ctx: dict) -> None:
-    """Auto-score users for completed tasks (on-time vs late)."""
+    """Автоначисление баллов за завершённые задачи (в срок vs с просрочкой).
+
+    Ежедневно находит задачи, переведённые в статус ``done`` вчера,
+    и начисляет баллы исполнителю:
+    - ``+5`` за выполнение в срок (``auto_task_ontime``);
+    - ``-3`` за выполнение с просрочкой (``auto_task_late``).
+
+    Зачем: мотивирует сотрудников выполнять задачи вовремя через
+    прозрачную систему баллов, отражающуюся в лидерборде.
+
+    Args:
+        ctx: Контекст arq-воркера.
+    """
     from app.database import async_session_factory
     from app.models.score_entry import ScoreEntry
     from app.models.task import Task
@@ -69,7 +95,18 @@ async def auto_score_tasks(ctx: dict) -> None:
 
 
 async def auto_score_reports(ctx: dict) -> None:
-    """Auto-score users for timely/late report submissions."""
+    """Автоначисление баллов за своевременную подачу еженедельных отчётов.
+
+    Запускается только по понедельникам. Проверяет, кто подал отчёт
+    за прошлую неделю (понедельник-воскресенье) до конца дня:
+    - ``+3`` за подачу в срок (``auto_report_ontime``).
+
+    Зачем: стимулирует сотрудников не забывать о еженедельной отчётности.
+    Отсутствие отчёта пока не штрафуется (можно добавить при необходимости).
+
+    Args:
+        ctx: Контекст arq-воркера.
+    """
     from app.database import async_session_factory
     from app.models.score_entry import ScoreEntry
     from app.models.weekly_report import WeeklyReport

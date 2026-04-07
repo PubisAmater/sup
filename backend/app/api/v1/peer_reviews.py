@@ -1,3 +1,14 @@
+"""Peer review (взаимная оценка) сотрудников: CRUD.
+
+Модуль реализует систему взаимных оценок между сотрудниками.
+Каждый сотрудник может оценить коллегу по шкале 1-5 за определённый период,
+оставив комментарий. Это даёт CEO объективную обратную связь о работе
+команды «снизу вверх», дополняя метрики и отчёты.
+
+Оценки привязаны к периоду (``period_start``/``period_end``) и
+используются при расчёте итоговых показателей эффективности.
+"""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,6 +31,24 @@ async def list_peer_reviews(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает список peer review с фильтрацией и пагинацией.
+
+    Поддерживает фильтрацию по оцениваемому (``reviewee_id``) и/или
+    оценивающему (``reviewer_id``). Результаты отсортированы по дате
+    создания (новые сверху). Используется CEO для анализа обратной связи
+    по конкретному сотруднику.
+
+    Args:
+        reviewee_id: Фильтр по UUID оцениваемого сотрудника.
+        reviewer_id: Фильтр по UUID автора оценки.
+        offset: Смещение для пагинации.
+        limit: Максимум записей (1-100).
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        list[PeerReviewRead]: Список оценок.
+    """
     query = select(PeerReview)
     if reviewee_id:
         query = query.where(PeerReview.reviewee_id == reviewee_id)
@@ -36,6 +65,22 @@ async def create_peer_review(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Создаёт новую взаимную оценку коллеги.
+
+    Автор оценки определяется из JWT (``reviewer_id``). Рейтинг должен быть
+    от 1 до 5. Оценка привязана к периоду и может содержать текстовый комментарий.
+
+    Args:
+        data: Данные оценки (оцениваемый, период, рейтинг, комментарий).
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        PeerReviewRead: Созданная оценка.
+
+    Raises:
+        HTTPException: 400, если рейтинг вне диапазона 1-5.
+    """
     if data.rating < 1 or data.rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be 1-5")
 
@@ -57,6 +102,19 @@ async def get_peer_review(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает конкретную peer review по UUID.
+
+    Args:
+        review_id: UUID оценки.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        PeerReviewRead: Данные оценки.
+
+    Raises:
+        HTTPException: 404, если оценка не найдена.
+    """
     result = await session.execute(select(PeerReview).where(PeerReview.id == review_id))
     review = result.scalar_one_or_none()
     if not review:

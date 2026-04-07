@@ -108,6 +108,24 @@ async def grant_bonus(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Начисляет бонусные баллы сотруднику.
+
+    Позволяет CEO или руководителю вручную наградить сотрудника за
+    особые достижения (инициативу, помощь коллегам и т.д.).
+    Баллы всегда положительные — при отрицательном значении возвращает 400.
+    Записывается кто начислил (``granted_by`` из JWT).
+
+    Args:
+        data: UUID сотрудника, количество баллов и причина.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ScoreEntryRead: Созданная запись о бонусе.
+
+    Raises:
+        HTTPException: 400, если баллы <= 0.
+    """
     if data.points <= 0:
         raise HTTPException(status_code=400, detail="Bonus points must be positive")
 
@@ -132,6 +150,20 @@ async def grant_penalty(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Начисляет штрафные баллы сотруднику.
+
+    Позволяет руководителю вручную назначить штраф за нарушения
+    (опоздания, несоблюдение регламентов и т.д.). Баллы сохраняются
+    с отрицательным знаком (``-abs(points)``). Записывается кто назначил штраф.
+
+    Args:
+        data: UUID сотрудника, количество баллов и причина.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ScoreEntryRead: Созданная запись о штрафе.
+    """
     entry = ScoreEntry(
         id=uuid.uuid4(),
         tenant_id=uuid.UUID(current_user["tenant_id"]),
