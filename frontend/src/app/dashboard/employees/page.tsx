@@ -8,12 +8,13 @@ import type { Employee } from "@/lib/types";
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [department, setDepartment] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (department) params.set("department", department);
-    apiClient.get(`/api/v1/employees/?${params}`).then((r) => setEmployees(r.data)).catch(() => {}).finally(() => setLoading(false));
+    apiClient.get(`/api/v1/employees/?${params}`).then((r) => setEmployees(r.data)).catch(() => setError("Не удалось загрузить сотрудников")).finally(() => setLoading(false));
   }, [department]);
 
   const departments = Array.from(new Set(employees.map((e) => e.department)));

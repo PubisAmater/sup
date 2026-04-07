@@ -22,16 +22,18 @@ const PROCESSING_LABELS: Record<string, { label: string; color: string }> = {
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
+    setError(null);
 
     apiClient
       .get(`/api/v1/meetings/?${params}`)
       .then((res) => setMeetings(res.data))
-      .catch(() => {})
+      .catch(() => setError("Не удалось загрузить совещания"))
       .finally(() => setLoading(false));
   }, [statusFilter]);
 
@@ -62,6 +64,10 @@ export default function MeetingsPage() {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-sm">{error}</div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Загрузка...</div>

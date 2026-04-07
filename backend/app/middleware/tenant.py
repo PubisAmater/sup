@@ -1,8 +1,12 @@
+import logging
+
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
 from app.auth.jwt import decode_access_token
+
+logger = logging.getLogger(__name__)
 
 PUBLIC_PATHS = {"/", "/docs", "/openapi.json", "/redoc", "/auth", "/api/v1/health"}
 
@@ -21,7 +25,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             try:
                 payload = decode_access_token(token)
                 request.state.tenant_id = payload.get("tenant_id")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to decode token in tenant middleware: %s", e)
 
         return await call_next(request)

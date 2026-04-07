@@ -2,10 +2,13 @@ import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
+from arq import cron
 from arq.connections import RedisSettings
 from sqlalchemy import select
 
 from app.config import get_settings
+from app.workers.reports import deliver_report_to_ceo, generate_audio_summary
+from app.workers.scores import auto_score_reports, auto_score_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -274,9 +277,12 @@ class WorkerSettings:
         sync_entity_to_notion,
         check_overdue_tasks,
         send_meeting_reminder,
+        deliver_report_to_ceo,
+        generate_audio_summary,
+        auto_score_tasks,
+        auto_score_reports,
     ]
     cron_jobs = [
-        # Check overdue tasks daily at 9:00 AM
-        # cron(check_overdue_tasks, hour=9, minute=0),
+        cron(check_overdue_tasks, hour=9, minute=0),
     ]
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

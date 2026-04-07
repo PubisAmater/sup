@@ -14,7 +14,7 @@ class GoogleCalendarService:
     def __init__(self):
         settings = get_settings()
         self.calendar_id = settings.google_calendar_id
-        self.credentials_json = settings.google_credentials_json
+        self.api_key = settings.google_credentials_json  # OAuth token or API key
 
     async def find_free_slots(
         self,
@@ -84,7 +84,7 @@ class GoogleCalendarService:
                 response = await client.post(
                     f"{GOOGLE_CALENDAR_API}/calendars/{self.calendar_id}/events",
                     json=body,
-                    headers={"Authorization": f"Bearer {self.credentials_json}"},
+                    headers={"Authorization": f"Bearer {self.api_key}"},
                 )
                 response.raise_for_status()
                 return response.json()
@@ -104,7 +104,7 @@ class GoogleCalendarService:
                         "singleEvents": "true",
                         "orderBy": "startTime",
                     },
-                    headers={"Authorization": f"Bearer {self.credentials_json}"},
+                    headers={"Authorization": f"Bearer {self.api_key}"},
                 )
                 response.raise_for_status()
                 return response.json().get("items", [])

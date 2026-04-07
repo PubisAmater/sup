@@ -22,6 +22,7 @@ const PRIORITY_STYLES: Record<string, string> = {
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
 
@@ -29,11 +30,12 @@ export default function TasksPage() {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
     if (priorityFilter) params.set("priority", priorityFilter);
+    setError(null);
 
     apiClient
       .get(`/api/v1/tasks/?${params}`)
       .then((res) => setTasks(res.data))
-      .catch(() => {})
+      .catch(() => setError("Не удалось загрузить задачи"))
       .finally(() => setLoading(false));
   }, [statusFilter, priorityFilter]);
 
@@ -78,6 +80,10 @@ export default function TasksPage() {
           ))}
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-4 text-sm">{error}</div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Загрузка...</div>

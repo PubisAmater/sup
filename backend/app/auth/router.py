@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.jwt import create_access_token
 from app.auth.telegram import TelegramAuthData, verify_telegram_auth
 from app.database import get_async_session
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import UserRead
 
@@ -54,8 +55,13 @@ async def telegram_callback(
 
 @router.get("/me", response_model=UserRead)
 async def get_me(
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
-    # This endpoint requires authentication — handled via dependencies
-    # Placeholder: actual implementation uses get_current_user dependency
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    result = await session.execute(
+        select(User).where(User.id == uuid.UUID(current_user["sub"]))
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user

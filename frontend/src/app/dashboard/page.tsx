@@ -7,18 +7,25 @@ import type { DashboardStats } from "@/lib/types";
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient
       .get("/api/v1/dashboard/stats")
       .then((res) => setStats(res.data))
-      .catch(() => {})
+      .catch((err) => setError("Не удалось загрузить данные. Сервер недоступен."))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Панель управления</h1>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6 text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <DashboardCard
