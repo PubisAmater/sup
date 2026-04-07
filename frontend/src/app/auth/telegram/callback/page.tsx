@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { setToken } from "@/lib/auth";
 
-export default function TelegramCallbackPage() {
+function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -49,5 +49,17 @@ export default function TelegramCallbackPage() {
         <p className="text-gray-500">Выполняется авторизация...</p>
       </div>
     </div>
+  );
+}
+
+export default function TelegramCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sup-600 mx-auto" />
+      </div>
+    }>
+      <CallbackHandler />
+    </Suspense>
   );
 }

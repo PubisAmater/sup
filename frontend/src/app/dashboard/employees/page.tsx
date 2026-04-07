@@ -16,7 +16,7 @@ export default function EmployeesPage() {
     apiClient.get(`/api/v1/employees/?${params}`).then((r) => setEmployees(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, [department]);
 
-  const departments = [...new Set(employees.map((e) => e.department))];
+  const departments = Array.from(new Set(employees.map((e) => e.department)));
 
   return (
     <div>
