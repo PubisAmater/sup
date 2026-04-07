@@ -1,3 +1,33 @@
+"""
+Task model — задача.
+
+Задачи создаются:
+1. Автоматически из совещаний — ИИ извлекает из транскрипции
+2. Вручную — через API POST /tasks/
+
+Статусы задачи:
+    todo — к выполнению
+    in_progress — в работе
+    done — выполнено
+    cancelled — отменено
+
+Приоритеты:
+    critical — критический (блокирует бизнес-процессы)
+    high — высокий
+    medium — средний (по умолчанию)
+    low — низкий
+
+Просроченные задачи:
+    Задача считается просроченной если due_date < today
+    и status в ("todo", "in_progress").
+    Worker check_overdue_tasks ежедневно проверяет и уведомляет
+    исполнителей через Telegram.
+
+Балльная система:
+    +5 баллов за задачу, выполненную в срок (auto_task_ontime)
+    -3 балла за просроченную задачу (auto_task_late)
+    Начисляется автоматически worker'ом auto_score_tasks.
+"""
 import uuid
 from datetime import date, datetime
 
@@ -8,6 +38,29 @@ from app.database import Base
 
 
 class Task(Base):
+    """
+    Задача.
+
+    Attributes:
+        id: UUID задачи.
+        tenant_id: FK на тенант (для RLS).
+        title: Краткое название задачи.
+        description: Подробное описание.
+        assignee_id: FK на User — исполнитель задачи.
+        meeting_id: FK на Meeting — если задача создана из совещания.
+        decision_id: FK на Decision — если задача создана из решения.
+        status: Статус (todo/in_progress/done/cancelled).
+        priority: Приоритет (critical/high/medium/low).
+        due_date: Срок выполнения.
+        notion_page_id: ID страницы в Notion после синхронизации.
+        created_at: Дата создания.
+        updated_at: Дата последнего обновления.
+
+    Relationships:
+        assignee: Исполнитель задачи (User).
+        meeting: Связанное совещание (если есть).
+        decision: Связанное решение (если есть).
+    """
     __tablename__ = "tasks"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

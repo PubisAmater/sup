@@ -1,3 +1,19 @@
+"""
+Decision model — решение, принятое на совещании.
+
+Решения создаются двумя способами:
+1. Автоматически — ИИ (Claude) извлекает из транскрипции совещания
+2. Вручную — через API POST /meetings/{id}/decisions
+
+Каждое решение привязано к совещанию и имеет:
+- Ответственного за принятие (decided_by — кто принял решение)
+- Исполнителя (assignee_id — кто выполняет)
+- Срок выполнения (due_date)
+- Приоритет (high/medium/low)
+
+При ИИ-обработке совещания Claude также проверяет новые решения
+на противоречия с архивом решений за последние 90 дней.
+"""
 import uuid
 from datetime import date, datetime
 
@@ -8,6 +24,27 @@ from app.database import Base
 
 
 class Decision(Base):
+    """
+    Решение совещания.
+
+    Attributes:
+        id: UUID решения.
+        tenant_id: FK на тенант (для RLS).
+        meeting_id: FK на совещание, на котором принято решение.
+        content: Текст решения.
+        decided_by: FK на User — кто принял решение (обычно CEO/организатор).
+        assignee_id: FK на User — кто выполняет решение (исполнитель).
+        due_date: Срок выполнения. Может извлекаться из транскрипции Claude.
+        priority: Приоритет (high/medium/low).
+        status: Статус решения (active/completed/cancelled).
+        notion_page_id: ID страницы в Notion после синхронизации.
+        created_at: Дата создания.
+
+    Relationships:
+        meeting: Совещание, на котором принято решение.
+        decided_by_user: Кто принял решение.
+        assignee: Кто выполняет решение.
+    """
     __tablename__ = "decisions"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

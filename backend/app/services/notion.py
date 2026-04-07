@@ -1,3 +1,43 @@
+"""
+Сервис интеграции с Notion API для синхронизации совещаний, решений и задач.
+
+ЧТО: Модуль предоставляет класс NotionService, который синхронизирует данные
+о совещаниях, решениях и задачах из внутренней БД приложения в базы данных Notion.
+
+ЗАЧЕМ: Notion используется как единая база знаний компании. Все протоколы совещаний,
+принятые решения и поставленные задачи должны быть доступны сотрудникам в привычном
+интерфейсе Notion, а не только во внутренней системе.
+
+КАК: Используется Notion API v2022-06-28 (последняя стабильная версия). Для каждой
+сущности (Meeting, Decision, Task) существует отдельная база данных в Notion с
+преднастроенными свойствами. Сервис реализует upsert-логику: если страница уже
+существует (есть existing_page_id) --- обновляет её, иначе --- создаёт новую.
+
+Маппинг полей на Notion properties:
+  Meeting -> Notion "Совещания":
+    - title            -> "Название" (title)
+    - status           -> "Статус" (select)
+    - scheduled_at     -> "Дата" (date)
+    - organizer_name   -> "Организатор" (rich_text)
+    - summary          -> Контент страницы (paragraph block, макс. 2000 символов)
+
+  Decision -> Notion "Решения":
+    - content          -> "Решение" (title, обрезается до 200 символов)
+    - status           -> "Статус" (select)
+    - priority         -> "Приоритет" (select)
+    - assignee_name    -> "Ответственный" (rich_text)
+    - due_date         -> "Срок" (date)
+    - meeting_title    -> "Совещание" (rich_text)
+
+  Task -> Notion "Задачи":
+    - title            -> "Задача" (title)
+    - status           -> "Статус" (select)
+    - priority         -> "Приоритет" (select)
+    - assignee_name    -> "Исполнитель" (rich_text)
+    - due_date         -> "Срок" (date)
+    - description      -> Контент страницы (paragraph block, макс. 2000 символов)
+"""
+
 import logging
 import uuid
 
@@ -11,6 +51,30 @@ NOTION_API_URL = "https://api.notion.com/v1"
 
 
 class NotionService:
+    """
+    Сервис для двусторонней синхронизации данных с Notion.
+
+    ЧТО: Предоставляет методы для создания и обновления страниц в трёх базах данных
+    Notion: совещания, решения и задачи. Также позволяет запрашивать данные из любой
+    базы данных Notion через метод query_database().
+
+    ЗАЧЕМ: Централизация данных о совещаниях в Notion --- руководители и сотрудники
+    видят актуальные решения и задачи в привычном инструменте без необходимости
+    входить в отдельную систему.
+
+    КАК: Работает через Notion REST API v2022-06-28. Каждый метод sync_* реализует
+    upsert-паттерн: если передан existing_page_id --- вызывается PATCH для обновления,
+    иначе --- POST для создания новой страницы. Авторизация через Bearer-токен
+    (Internal Integration Token из настроек Notion).
+
+    Атрибуты:
+        api_key (str): Notion Internal Integration Token.
+        meetings_db_id (str): ID базы данных Notion для совещаний.
+        decisions_db_id (str): ID базы данных Notion для решений.
+        tasks_db_id (str): ID базы данных Notion для задач.
+        headers (dict): HTTP-заголовки для всех запросов к Notion API.
+    """
+
     def __init__(self):
         settings = get_settings()
         self.api_key = settings.notion_api_key

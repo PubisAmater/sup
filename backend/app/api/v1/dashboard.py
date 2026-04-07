@@ -1,3 +1,11 @@
+"""Агрегированная статистика для дашборда CEO.
+
+Модуль предоставляет единый эндпоинт, возвращающий ключевые показатели
+для главного экрана: количество сотрудников, совещания текущей недели,
+задачи в работе и просроченные задачи. Данные используются фронтендом
+для отображения виджетов дашборда руководителя.
+"""
+
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
@@ -17,6 +25,24 @@ async def get_dashboard_stats(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает сводную статистику для дашборда CEO.
+
+    Собирает агрегированные данные из нескольких таблиц одним запросом:
+    - ``employees_count`` — число активных сотрудников в системе;
+    - ``meetings_this_week`` — количество совещаний, запланированных на текущую неделю;
+    - ``tasks_in_progress`` — задачи в статусах ``todo`` и ``in_progress``;
+    - ``overdue_tasks`` — просроченные незавершённые задачи.
+
+    Зачем: CEO видит ключевые цифры сразу при входе в систему, без необходимости
+    переходить в отдельные разделы. Это ускоряет принятие управленческих решений.
+
+    Args:
+        session: Асинхронная сессия SQLAlchemy (инъекция через Depends).
+        current_user: Данные текущего пользователя из JWT-токена.
+
+    Returns:
+        dict: Словарь с четырьмя числовыми метриками для виджетов дашборда.
+    """
     now = datetime.now(timezone.utc)
     week_start = now - timedelta(days=now.weekday())
     week_end = week_start + timedelta(days=7)
