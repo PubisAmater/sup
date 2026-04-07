@@ -126,6 +126,20 @@ async def create_task(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Создаёт новую задачу в системе.
+
+    Задача привязывается к тенанту текущего пользователя. Может быть связана
+    с совещанием и/или решением. Создание задач вручную дополняет автоматическое
+    создание из AI-анализа совещаний.
+
+    Args:
+        data: Данные задачи (название, описание, исполнитель, приоритет, дедлайн).
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        TaskRead: Созданная задача с присвоенным UUID.
+    """
     task = Task(
         id=uuid.uuid4(),
         tenant_id=uuid.UUID(current_user["tenant_id"]),
@@ -144,6 +158,24 @@ async def update_task(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Частично обновляет задачу (PATCH-семантика).
+
+    Позволяет изменить статус, приоритет, исполнителя, дедлайн и т.д.
+    Типичное использование — перевод задачи в статус ``done`` при завершении.
+    Обновляются только переданные поля.
+
+    Args:
+        task_id: UUID обновляемой задачи.
+        data: Поля для обновления.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        TaskRead: Обновлённые данные задачи.
+
+    Raises:
+        HTTPException: 404, если задача не найдена.
+    """
     result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
@@ -163,6 +195,16 @@ async def delete_task(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Удаляет задачу из системы.
+
+    Args:
+        task_id: UUID удаляемой задачи.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Raises:
+        HTTPException: 404, если задача не найдена.
+    """
     result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
