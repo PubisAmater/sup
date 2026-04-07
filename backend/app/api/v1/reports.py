@@ -193,6 +193,26 @@ async def submit_report(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Подаёт отчёт и запускает доставку CEO.
+
+    Переводит статус отчёта в ``submitted``, фиксирует время подачи
+    и ставит в очередь arq две задачи:
+    1. ``deliver_report_to_ceo`` — отправка форматированного текста в Telegram CEO;
+    2. ``generate_audio_summary`` — генерация аудио-саммари через SpeechKit.
+
+    Если очередь Redis недоступна, отчёт всё равно сохраняется как поданный.
+
+    Args:
+        report_id: UUID подаваемого отчёта.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        ReportRead: Отчёт с обновлённым статусом и временем подачи.
+
+    Raises:
+        HTTPException: 404, если отчёт не найден.
+    """
     result = await session.execute(select(WeeklyReport).where(WeeklyReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:

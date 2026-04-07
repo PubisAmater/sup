@@ -1,3 +1,14 @@
+"""Интеграция с Google Calendar: поиск свободных слотов и бронирование.
+
+Модуль предоставляет два эндпоинта для работы с Google Calendar:
+- Поиск свободных временных слотов заданной продолжительности в диапазоне дат;
+- Бронирование слота (создание события в Google Calendar).
+
+Используется для планирования совещаний с учётом занятости участников.
+Работает через сервис ``GoogleCalendarService``, который инкапсулирует
+взаимодействие с Google Calendar API.
+"""
+
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Body, Depends, Query

@@ -76,6 +76,22 @@ class NotionService:
     """
 
     def __init__(self):
+        """
+        Инициализация сервиса Notion.
+
+        ЧТО: Загружает API-ключ и идентификаторы трёх баз данных Notion из конфигурации,
+        формирует HTTP-заголовки для всех запросов.
+
+        ЗАЧЕМ: Для работы с Notion API необходимы:
+          - Internal Integration Token (api_key) --- создаётся в Notion Integrations.
+          - ID баз данных --- каждая сущность (совещание, решение, задача)
+            хранится в отдельной базе Notion с преднастроенными свойствами.
+
+        Заголовки включают:
+          - Authorization: Bearer-токен интеграции.
+          - Notion-Version: 2022-06-28 --- фиксированная версия API для стабильности.
+          - Content-Type: application/json.
+        """
         settings = get_settings()
         self.api_key = settings.notion_api_key
         self.meetings_db_id = settings.notion_meetings_db_id
