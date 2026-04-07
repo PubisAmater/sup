@@ -1,3 +1,12 @@
+"""CRUD-операции для задач и фильтр по просроченным.
+
+Модуль управляет жизненным циклом задач: создание (вручную или из AI-анализа
+совещаний), просмотр с фильтрацией, обновление статуса и удаление.
+Задачи привязываются к исполнителю (``assignee_id``), могут быть связаны
+с совещанием и решением. Отдельный эндпоинт ``/overdue`` возвращает
+просроченные задачи для контроля CEO.
+"""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,6 +31,25 @@ async def list_tasks(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает список задач с пагинацией и множественной фильтрацией.
+
+    Поддерживает фильтры по исполнителю, совещанию, статусу и приоритету.
+    Результаты отсортированы по дате создания (новые сверху).
+    Используется на странице «Задачи» и в карточке совещания.
+
+    Args:
+        offset: Смещение для пагинации.
+        limit: Максимум записей (1-100).
+        assignee_id: Фильтр по UUID исполнителя.
+        meeting_id: Фильтр по UUID совещания-источника.
+        status_filter: Фильтр по статусу (``todo``, ``in_progress``, ``done``).
+        priority: Фильтр по приоритету (``low``, ``medium``, ``high``, ``critical``).
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        list[TaskRead]: Список задач, соответствующих критериям.
+    """
     query = select(Task)
     if assignee_id:
         query = query.where(Task.assignee_id == assignee_id)
@@ -41,6 +69,20 @@ async def list_overdue_tasks(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает список просроченных незавершённых задач.
+
+    Выбирает задачи с ``due_date`` раньше сегодняшней даты и статусом
+    ``todo`` или ``in_progress``. Отсортированы по дедлайну (самые старые
+    сверху). Используется CEO для быстрого выявления проблемных зон
+    и отображается как алерт на дашборде.
+
+    Args:
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        list[TaskRead]: Просроченные задачи, отсортированные по дедлайну.
+    """
     from datetime import date
     today = date.today()
     result = await session.execute(
@@ -58,6 +100,19 @@ async def get_task(
     session: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    """Возвращает данные конкретной задачи по UUID.
+
+    Args:
+        task_id: UUID задачи.
+        session: Асинхронная сессия БД.
+        current_user: Данные текущего пользователя из JWT.
+
+    Returns:
+        TaskRead: Полные данные задачи.
+
+    Raises:
+        HTTPException: 404, если задача не найдена.
+    """
     result = await session.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
